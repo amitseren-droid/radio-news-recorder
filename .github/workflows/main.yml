@@ -8,41 +8,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup FFmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v3
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
-      - name: Record Galgalatz - Part 1
+      - name: Record Galgalatz
         run: |
           ffmpeg -y \
             -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 60 \
-            -c copy \
-            part1.mp3
-
-      - name: Record Galgalatz - Part 2
-        run: |
-          ffmpeg -y \
-            -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 60 \
-            -c copy \
-            part2.mp3
-
-      - name: Record Galgalatz - Part 3
-        run: |
-          ffmpeg -y \
-            -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 60 \
-            -c copy \
-            part3.mp3
-
-      - name: Join recordings
-        run: |
-          printf "file 'part1.mp3'\nfile 'part2.mp3'\nfile 'part3.mp3'\n" > files.txt
-          ffmpeg -y \
-            -f concat \
-            -safe 0 \
-            -i files.txt \
-            -c copy \
+            -t 180 \
             galgalatz-test.mp3
 
       - name: Upload recording
