@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Check FFmpeg
-  run: ffmpeg -version
+        run: ffmpeg -version
 
       - name: Record Galgalatz
         run: |
