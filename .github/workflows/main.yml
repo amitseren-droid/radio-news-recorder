@@ -1,23 +1,14 @@
 name: Test Galgalatz Recording
 
-״on״:
+on:
   workflow_dispatch:
 
 jobs:
   record:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
-      - name: Record Galgalatz for 60 seconds
-        run: |
-          ffmpeg -y \
-          -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-          -t 60 \
-          -c:a libmp3lame \
-          galgalatz-test.mp3
+      - name: Record Galgalatz
+        run: ffmpeg -y -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" -t 60 galgalatz-test.mp3
 
       - name: Upload recording
         uses: actions/upload-artifact@v4
