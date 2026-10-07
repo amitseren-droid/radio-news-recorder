@@ -17,7 +17,7 @@ jobs:
         run: |
           ffmpeg -y \
             -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 60 \
+            -t 180 \
             galgalatz-test.mp3
 
       - name: Upload recording
