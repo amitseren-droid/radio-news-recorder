@@ -20,8 +20,22 @@ jobs:
             -t 180 \
             galgalatz-test.mp3
 
+      - name: Verify recording
+        run: |
+          ls -lh galgalatz-test.mp3
+
+          ffprobe -v error \
+            -show_entries format=duration,size \
+            -of default=noprint_wrappers=1 \
+            galgalatz-test.mp3
+
+          ffmpeg -v error \
+            -i galgalatz-test.mp3 \
+            -f null -
+
       - name: Upload recording
         uses: actions/upload-artifact@v4
         with:
           name: galgalatz-test
           path: galgalatz-test.mp3
+          if-no-files-found: error
