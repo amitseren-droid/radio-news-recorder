@@ -1,9 +1,9 @@
 
 name: Galgalatz Hourly News Recorder
 
-on:
+"on":
   schedule:
-    - cron: '50 * * * *'
+    - cron: '40 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -12,33 +12,74 @@ permissions:
 jobs:
   record:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
-      - name: Install FFmpeg
+      - name: Check FFmpeg
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version | head -n 1
 
-      - name: Wait until next full hour
+      - name: Wait for scheduled recording time
         shell: bash
         run: |
           python3 - <<'PY'
           import time
-          from datetime import datetime, timedelta
+          from datetime import datetime, timedelta, timezone
           from zoneinfo import ZoneInfo
 
           tz = ZoneInfo("Asia/Jerusalem")
-          now = datetime.now(tz)
-          target = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+
+          # GitHub schedules workflows using UTC.
+          # The intended recording hour is the first full
+          # UTC hour after the scheduled minute 40.
+          event = "${{ github.event_name }}"
+
+          if event == "schedule":
+              # The scheduled event is intended for minute 40.
+              # Accept only runs starting before the next hour.
+              now = datetime.now(timezone.utc)
+              target = now.replace(
+                  minute=0, second=0, microsecond=0
+              ) + timedelta(hours=1)
+
+              # If started too late in the hour,
+              # do not wait for the following hour.
+              if now.minute < 40:
+                  raise SystemExit(
+                      "Scheduled run started too late. "
+                      "Skipping this recording."
+                  )
+          else:
+              # Manual test: target the next full hour.
+              now = datetime.now(timezone.utc)
+              target = now.replace(
+                  minute=0, second=0, microsecond=0
+              ) + timedelta(hours=1)
 
           wait = target.timestamp() - time.time()
 
+          if wait > 25 * 60:
+              raise SystemExit(
+                  "Target is too far away. "
+                  "Skipping this recording."
+              )
+
+          print(
+              "Recording scheduled for:",
+              target.astimezone(tz).isoformat(),
+              flush=True
+          )
+          print(
+              f"Waiting {wait:.0f} seconds",
+              flush=True
+          )
+
           if wait > 0:
-              print(f"Waiting {wait:.0f} seconds until {target.isoformat()}", flush=True)
               time.sleep(wait)
-          else:
-              raise SystemExit("Missed target time")
           PY
 
       - name: Record Galgalatz for 3 minutes
@@ -49,6 +90,14 @@ jobs:
             -t 180 \
             -c:a libmp3lame \
             -b:a 128k \
+            galgalatz-news.mp3
+
+      - name: Verify recording
+        run: |
+          ls -lh galgalatz-news.mp3
+          ffprobe -v error \
+            -show_entries format=duration,size \
+            -of default=noprint_wrappers=1 \
             galgalatz-news.mp3
 
       - name: Upload recording
