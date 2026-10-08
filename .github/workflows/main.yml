@@ -1,4 +1,3 @@
-
 name: Galgalatz Hourly News Recorder
 
 "on":
@@ -47,13 +46,14 @@ jobs:
           now = datetime.now(timezone.utc)
           event = os.environ["EVENT_NAME"]
 
+          # Next full hour + 30 seconds
           target = now.replace(
               minute=0,
               second=0,
               microsecond=0
-          ) + timedelta(hours=1)
+          ) + timedelta(hours=1, seconds=30)
 
-          # Scheduled jobs should arrive between
+          # Scheduled runs should arrive between
           # minute 30 and minute 59.
           if event == "schedule":
               if now.minute < 30:
@@ -97,7 +97,7 @@ jobs:
 
           ffmpeg -nostdin -y \
             -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 180 \
+            -t 240 \
             -c:a libmp3lame \
             -b:a 128k \
             recordings/latest.mp3
