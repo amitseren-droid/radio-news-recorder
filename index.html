@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101827"><meta name="description" content="נגן המבזק האחרון של גלגלצ">
+<title>חדשות עכשיו | מבזק גלגלצ</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;background:#0b1120;color:#f8fafc}*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 50% 10%,#243c63 0,#111b30 45%,#0b1120 85%);display:flex;align-items:center;justify-content:center;padding:24px}.shell{width:min(100%,480px)}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:36px}.brand{font-weight:800;letter-spacing:-.4px;font-size:22px}.badge{background:#193b36;color:#6ee7b7;border:1px solid #2a5a4e;border-radius:30px;padding:7px 12px;font-size:12px}.card{background:linear-gradient(145deg,#1d2b44,#101a2d);border:1px solid #33425d;border-radius:32px;padding:32px 24px;box-shadow:0 25px 80px #0005;text-align:center}.radio{width:96px;height:96px;margin:4px auto 22px;border-radius:28px;background:linear-gradient(145deg,#55a9ff,#5765e9);display:grid;place-items:center;font-size:44px;box-shadow:0 14px 35px #4468ec50}.eyebrow{color:#9eb2d1;font-size:14px;margin:0 0 6px}h1{font-size:31px;margin:0 0 10px;letter-spacing:-1px}.sub{color:#aabbd2;margin:0 0 25px;line-height:1.6}.time{font-size:14px;color:#c8d7ef;margin-bottom:24px}.play{width:84px;height:84px;border:0;border-radius:50%;background:#f7fafc;color:#152238;font-size:34px;cursor:pointer;box-shadow:0 12px 30px #0005}.play:disabled{opacity:.4;cursor:not-allowed}.seek{width:100%;accent-color:#71b8ff;cursor:pointer;margin-top:29px}.times{display:flex;justify-content:space-between;color:#aebed6;font-size:13px;direction:ltr}.actions{display:flex;justify-content:center;gap:10px;margin-top:26px}.actions button{border:1px solid #43536e;border-radius:14px;background:#24334b;color:#eef5ff;padding:12px 18px;font-size:14px;cursor:pointer}.status{min-height:42px;color:#b9c9df;font-size:13px;line-height:1.6;margin:24px 0 0}.foot{text-align:center;color:#8b9db8;font-size:12px;line-height:1.8;margin:22px 10px}.notice{font-size:12px;color:#94a3b8;margin-top:12px}button:focus-visible,input:focus-visible{outline:3px solid #78b8ff;outline-offset:3px}
+</style>
+</head>
+<body><main class="shell"><header class="top"><div class="brand">חדשות עכשיו<span style="color:#66b5ff">.</span></div><span class="badge" id="liveBadge">מבזק אחרון</span></header><section class="card"><div class="radio" aria-hidden="true">🎙️</div><p class="eyebrow">ההקלטה האחרונה</p><h1>מבזק גלגלצ</h1><p class="sub">כל מה שצריך לדעת, בלחיצה אחת.</p><div class="time" id="recordedAt">בודק את שעת המבזק...</div><button class="play" id="play" aria-label="נגן" disabled>▶</button><input class="seek" id="seek" type="range" min="0" max="100" value="0" aria-label="התקדמות ההקלטה"><div class="times"><span id="elapsed">0:00</span><span id="duration">0:00</span></div><div class="actions"><button id="refresh">↻ רענון מבזק</button><button id="speed">מהירות ×1</button></div><p class="status" id="status" role="status">טוען פרטי הקלטה...</p></section><p class="foot">נגן ניסיוני לשימוש אישי. התוכן משודר על ידי גלגלצ ואינו מופק על ידי האתר.<br><span class="notice">הקלטות עשויות להכיל מוזיקה לפני תחילת המבזק.</span></p><audio id="audio" preload="metadata"></audio></main>
+<script>
+const OWNER='amitseren-droid', REPO='radio-news-recorder', BRANCH='main';
+const raw=`https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/recordings/latest.mp3`;
+const api=`https://api.github.com/repos/${OWNER}/${REPO}/commits?path=recordings/latest.mp3&per_page=1`;
+const $=id=>document.getElementById(id), audio=$('audio'), play=$('play'), status=$('status');
+const fmt=t=>Number.isFinite(t)?`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`:'0:00';
+let currentUrl='', seeking=false;
+function setStatus(s){status.textContent=s}
+function setPlay(){play.textContent=audio.paused?'▶':'❚❚';play.setAttribute('aria-label',audio.paused?'נגן':'השהה')}
+async function refresh(){setStatus('בודק את ההקלטה האחרונה...');$('refresh').disabled=true;try{
+ const response=await fetch(api,{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});
+ if(!response.ok)throw Error(response.status===404?'לא נמצאה הקלטה. יש לוודא שהריפוזיטורי ציבורי ושהקובץ recordings/latest.mp3 קיים.':`לא ניתן לבדוק עדכונים (${response.status}).`);
+ const commits=await response.json();if(!commits.length)throw Error('עדיין לא פורסמה הקלטה.');
+ const commit=commits[0],stamp=commit.commit.committer?.date||commit.commit.author?.date;
+ const when=stamp?new Date(stamp):null;
+ $('recordedAt').textContent=when?`עודכן ב־${new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(when)} (שעת שמירת הקובץ)`:'ההקלטה האחרונה';
+ const url=`${raw}?v=${encodeURIComponent(commit.sha)}`;
+ if(url!==currentUrl){const wasPlaying=!audio.paused&&currentUrl;audio.pause();currentUrl=url;audio.src=url;audio.load();$('seek').value=0;$('elapsed').textContent='0:00';$('duration').textContent='0:00';play.disabled=false;setPlay();setStatus('ההקלטה מוכנה להאזנה.');if(wasPlaying)setStatus('יש מבזק חדש! לחץ על נגן כדי להאזין.')}else setStatus('זו ההקלטה העדכנית ביותר.');
+ }catch(e){setStatus(e.message||'אירעה שגיאה בבדיקת המבזק.')}finally{$('refresh').disabled=false}}
+play.addEventListener('click',async()=>{try{if(audio.paused)await audio.play();else audio.pause()}catch(e){setStatus('לא ניתן לנגן את הקובץ. בדוק שהוא זמין ושהריפוזיטורי ציבורי.')}});
+audio.addEventListener('play',setPlay);audio.addEventListener('pause',setPlay);
+audio.addEventListener('loadedmetadata',()=>{$('duration').textContent=fmt(audio.duration)});
+audio.addEventListener('timeupdate',()=>{if(!seeking&&audio.duration){$('seek').value=100*audio.currentTime/audio.duration;$('elapsed').textContent=fmt(audio.currentTime)}});
+$('seek').addEventListener('input',()=>{seeking=true;if(audio.duration)$('elapsed').textContent=fmt(audio.duration*$('seek').value/100)});
+$('seek').addEventListener('change',()=>{if(audio.duration)audio.currentTime=audio.duration*$('seek').value/100;seeking=false});
+const speeds=[1,1.25,1.5,2];$('speed').addEventListener('click',()=>{let idx=speeds.indexOf(audio.playbackRate);audio.playbackRate=speeds[(idx+1)%speeds.length];$('speed').textContent=`מהירות ×${audio.playbackRate}`});
+$('refresh').addEventListener('click',refresh);audio.addEventListener('error',()=>setStatus('טעינת האודיו נכשלה. ודא שקובץ MP3 זמין ב־GitHub.'));
+refresh();setInterval(()=>{if(document.visibilityState==='visible')refresh()},5*60*1000);
+</script></body></html>
