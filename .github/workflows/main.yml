@@ -1,4 +1,5 @@
-name: Galgalatz Hourly News Recorder
+
+name: Galgalatz News Recorder V2.0
 
 "on":
   schedule:
@@ -20,10 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true
 
-      - name: Check FFmpeg
+      - name: Prepare FFmpeg
         shell: bash
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1; then
@@ -32,7 +31,7 @@ jobs:
           fi
           ffmpeg -version | head -n 1
 
-      - name: Wait until recording time
+      - name: Wait for news
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -44,43 +43,37 @@ jobs:
           from zoneinfo import ZoneInfo
 
           now = datetime.now(timezone.utc)
-          event = os.environ["EVENT_NAME"]
+          israel = ZoneInfo("Asia/Jerusalem")
 
-          # Next full hour + 30 seconds
           target = now.replace(
-              minute=0,
-              second=0,
-              microsecond=0
-          ) + timedelta(hours=1, seconds=30)
+              minute=0, second=0, microsecond=0
+          ) + timedelta(hours=1)
 
-          # Scheduled runs should arrive between
-          # minute 30 and minute 59.
-          if event == "schedule":
+          if os.environ["EVENT_NAME"] == "schedule":
               if now.minute < 30:
                   raise SystemExit(
-                      "Scheduled run missed its recording "
-                      "window. Skipping."
+                      "Scheduled job arrived too late. "
+                      "Skipping this hour."
                   )
 
           wait = target.timestamp() - time.time()
 
           if wait > 35 * 60:
               raise SystemExit(
-                  "Recording time too far away. Skipping."
+                  "Recording target too far away."
               )
 
-          israel = ZoneInfo("Asia/Jerusalem")
-
           print(
-              "Current Israel time:",
+              "Israel time:",
               now.astimezone(israel).isoformat(),
               flush=True
           )
           print(
-              "Recording target:",
+              "Target:",
               target.astimezone(israel).isoformat(),
               flush=True
           )
+
           print(
               f"Waiting {wait:.1f} seconds",
               flush=True
@@ -90,19 +83,19 @@ jobs:
               time.sleep(wait)
           PY
 
-      - name: Record Galgalatz
+      - name: Record 3 minutes
         shell: bash
         run: |
           mkdir -p recordings
 
           ffmpeg -nostdin -y \
             -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 240 \
+            -t 180 \
             -c:a libmp3lame \
             -b:a 128k \
             recordings/latest.mp3
 
-      - name: Verify MP3
+      - name: Verify recording
         shell: bash
         run: |
           test -s recordings/latest.mp3
@@ -116,7 +109,7 @@ jobs:
             -i recordings/latest.mp3 \
             -f null -
 
-      - name: Save MP3 to GitHub
+      - name: Save recording
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -126,10 +119,9 @@ jobs:
           git add recordings/latest.mp3
 
           if git diff --cached --quiet; then
-            echo "No changes to save."
+            echo "No changes."
             exit 0
           fi
 
-          git commit -m "Update latest Galgalatz recording"
-
+          git commit -m "Update latest news recording"
           git push
