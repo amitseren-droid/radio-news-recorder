@@ -1,5 +1,5 @@
 
-name: Galgalatz News Recorder V2.0
+name: Galgalatz News Recorder V2.2
 
 "on":
   schedule:
@@ -22,14 +22,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare FFmpeg
+      - name: Prepare FFmpeg and Python
         shell: bash
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y ffmpeg
           fi
-          ffmpeg -version | head -n 1
+          python3 -m pip install --user numpy scipy
 
       - name: Wait for news
         shell: bash
@@ -52,8 +52,7 @@ jobs:
           if os.environ["EVENT_NAME"] == "schedule":
               if now.minute < 30:
                   raise SystemExit(
-                      "Scheduled job arrived too late. "
-                      "Skipping this hour."
+                      "Scheduled job missed its window."
                   )
 
           wait = target.timestamp() - time.time()
@@ -64,12 +63,7 @@ jobs:
               )
 
           print(
-              "Israel time:",
-              now.astimezone(israel).isoformat(),
-              flush=True
-          )
-          print(
-              "Target:",
+              "Recording target:",
               target.astimezone(israel).isoformat(),
               flush=True
           )
@@ -83,7 +77,7 @@ jobs:
               time.sleep(wait)
           PY
 
-      - name: Record 3 minutes
+      - name: Record 4 minutes
         shell: bash
         run: |
           mkdir -p recordings
@@ -93,9 +87,17 @@ jobs:
             -t 240 \
             -c:a libmp3lame \
             -b:a 128k \
+            recordings/original.mp3
+
+      - name: Detect and trim news intro
+        shell: bash
+        run: |
+          python3 detect_intro.py \
+            recordings/original.mp3 \
+            news-intro-reference.wav \
             recordings/latest.mp3
 
-      - name: Verify recording
+      - name: Verify final recording
         shell: bash
         run: |
           test -s recordings/latest.mp3
@@ -109,7 +111,7 @@ jobs:
             -i recordings/latest.mp3 \
             -f null -
 
-      - name: Save recording
+      - name: Publish latest recording
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -119,7 +121,7 @@ jobs:
           git add recordings/latest.mp3
 
           if git diff --cached --quiet; then
-            echo "No changes."
+            echo "No changes to publish."
             exit 0
           fi
 
