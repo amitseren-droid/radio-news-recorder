@@ -77,14 +77,14 @@ jobs:
               time.sleep(wait)
           PY
 
-      - name: Record 4 minutes
+      - name: Record 5 minutes
         shell: bash
         run: |
           mkdir -p recordings
 
           ffmpeg -nostdin -y \
             -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 240 \
+            -t 300 \
             -c:a libmp3lame \
             -b:a 128k \
             recordings/original.mp3
