@@ -94,7 +94,7 @@ jobs:
         run: |
           python3 detect_intro.py \
             recordings/original.mp3 \
-            news-intro-reference.wav \
+            news-intro-reference.mp3 \
             recordings/latest.mp3
 
       - name: Verify final recording
