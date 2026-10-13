@@ -12,7 +12,7 @@ from scipy.signal import fftconvolve
 
 RATE = 8000
 MIN_SCORE = 0.82
-PREROLL_SECONDS = 9.0  # Conservatively preserve the complete musical intro.
+PREROLL_SECONDS = 0.3  # Conservatively preserve the complete musical intro.
 
 
 def pcm(path, output):
