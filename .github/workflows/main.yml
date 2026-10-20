@@ -1,5 +1,4 @@
-
-name: Galgalatz News Recorder V2.2
+name: Galgalatz News Recorder V2.3
 
 "on":
   schedule:
@@ -32,9 +31,8 @@ jobs:
           python3 -m pip install --user numpy scipy
 
       - name: Wait for news
+        id: timing
         shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           python3 - <<'PY'
           import os
@@ -49,35 +47,36 @@ jobs:
               minute=0, second=0, microsecond=0
           ) + timedelta(hours=1)
 
-          if os.environ["EVENT_NAME"] == "schedule":
-              if now.minute < 30:
-                  raise SystemExit(
-                      "Scheduled job missed its window."
-                  )
-
           wait = target.timestamp() - time.time()
 
           if wait > 35 * 60:
-              raise SystemExit(
-                  "Recording target too far away."
+              print(
+                  "Too late for this recording. Skipping.",
+                  flush=True
               )
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("should_record=false\n")
+              raise SystemExit(0)
 
           print(
               "Recording target:",
               target.astimezone(israel).isoformat(),
               flush=True
           )
-
           print(
-              f"Waiting {wait:.1f} seconds",
+              f"Waiting {wait:.0f} seconds",
               flush=True
           )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write("should_record=true\n")
 
           if wait > 0:
               time.sleep(wait)
           PY
 
       - name: Record 5 minutes
+        if: steps.timing.outputs.should_record == 'true'
         shell: bash
         run: |
           mkdir -p recordings
@@ -90,6 +89,7 @@ jobs:
             recordings/original.mp3
 
       - name: Detect and trim news intro
+        if: steps.timing.outputs.should_record == 'true'
         shell: bash
         run: |
           python3 detect_intro.py \
@@ -98,6 +98,7 @@ jobs:
             recordings/latest.mp3
 
       - name: Verify final recording
+        if: steps.timing.outputs.should_record == 'true'
         shell: bash
         run: |
           test -s recordings/latest.mp3
@@ -112,6 +113,7 @@ jobs:
             -f null -
 
       - name: Publish latest recording
+        if: steps.timing.outputs.should_record == 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
