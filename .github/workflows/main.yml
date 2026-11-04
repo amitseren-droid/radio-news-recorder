@@ -1,8 +1,8 @@
-name: Galgalatz News Recorder V2.3
+name: Galgalatz News Recorder V2.4
 
 "on":
   schedule:
-    - cron: '30 * * * *'
+    - cron: '15 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   record:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 65
 
     steps:
       - name: Checkout repository
@@ -48,8 +48,11 @@ jobs:
           ) + timedelta(hours=1)
 
           wait = target.timestamp() - time.time()
+          print(f"Workflow started at: {now.astimezone(israel).isoformat()}", flush=True)
+          print(f"Scheduled event: {os.environ.get('GITHUB_EVENT_NAME', 'unknown')}", flush=True)
+          print(f"Next target: {target.astimezone(israel).isoformat()}", flush=True)
 
-          if wait > 35 * 60:
+          if wait > 50 * 60:
               print(
                   "Too late for this recording. Skipping.",
                   flush=True
