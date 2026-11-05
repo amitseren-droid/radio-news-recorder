@@ -87,14 +87,14 @@ jobs:
               f.write(f"should_record={str(should_record).lower()}\n")
           PY
 
-      - name: Record 5 minutes
+      - name: Record 6 minutes
         if: steps.timing.outputs.should_record == 'true'
         shell: bash
         run: |
           mkdir -p recordings
           ffmpeg -nostdin -y \
             -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 300 \
+            -t 360 \
             -c:a libmp3lame \
             -b:a 128k \
             recordings/original.mp3
