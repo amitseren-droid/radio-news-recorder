@@ -1,136 +1,60 @@
-name: Galgalatz News Recorder V2.5
+name: Galgalatz News Recorder V2.6
 
 "on":
   schedule:
     - cron: '25,40 * * * *'
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/main.yml'
+      - 'news_worker.py'
+      - 'tests/test_news_worker.py'
+      - 'tests/player.test.cjs'
+      - 'player.js'
+      - 'index.html'
 
 permissions:
-  contents: write
+  contents: read
 
-concurrency:
-  group: galgalatz-recorder
-  cancel-in-progress: false
-
+# No global concurrency lock: the second scheduled attempt must not wait
+# behind the first. Publication uses non-force push and per-bulletin metadata.
 jobs:
-  record:
-    runs-on: ubuntu-latest
-    timeout-minutes: 80
+  validate:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run timing and publication tests
+        run: |
+          /usr/bin/python3 -m unittest discover -s tests -p 'test_news_worker.py' -v
+          node tests/player.test.cjs
 
+  record:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          ref: main
 
-      - name: Prepare FFmpeg and Python
-        shell: bash
+      - name: Select bulletin hour before preparation
+        id: plan
+        run: /usr/bin/python3 news_worker.py plan
+
+      - name: Prepare recording tools
+        timeout-minutes: 10
         run: |
-          if ! command -v ffmpeg >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
-          python3 -m pip install --user numpy scipy
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 install -y --no-install-recommends ffmpeg python3-numpy python3-scipy
+          /usr/bin/python3 -c "import numpy, scipy"
+          ffmpeg -version
 
-      - name: Wait for news
-        id: timing
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import os
-          import time
-          from datetime import datetime, timedelta, timezone
-          from zoneinfo import ZoneInfo
-
-          now = datetime.now(timezone.utc)
-          israel = ZoneInfo("Asia/Jerusalem")
-          hour = now.replace(minute=0, second=0, microsecond=0)
-          next_hour = hour + timedelta(hours=1)
-          print("Started:", now.astimezone(israel).isoformat(), flush=True)
-          print("Event:", os.environ.get("GITHUB_EVENT_NAME"), flush=True)
-
-          # If GitHub launched a scheduled job shortly after the hour,
-          # capture immediately instead of waiting another hour.
-          if now.minute < 8:
-              target = now
-              print("Late launch: recording immediately.", flush=True)
-          elif now.minute < 20:
-              # This run is too late for the last bulletin and too early
-              # to reserve a runner for the next one.
-              print("SKIP: outside recording window.", flush=True)
-              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-                  f.write("should_record=false\n")
-              raise SystemExit(0)
-          else:
-              target = next_hour
-
-          wait = max(0, target.timestamp() - time.time())
-          print("Target:", target.astimezone(israel).isoformat(), flush=True)
-          print(f"Waiting {wait:.0f} seconds", flush=True)
-          if wait:
-              time.sleep(wait)
-
-          # Another scheduled job may have published this bulletin already.
-          # Fetch the latest remote commit to avoid duplicate publication.
-          import subprocess
-          subprocess.run(["git", "fetch", "--quiet", "origin", "main"], check=True)
-          result = subprocess.run(
-              ["git", "log", "-1", "--format=%ct", "origin/main", "--",
-               "recordings/latest.mp3"],
-              capture_output=True, text=True, check=True
-          )
-          last = int(result.stdout.strip()) if result.stdout.strip() else 0
-          age = time.time() - last
-          print(f"Last published audio age: {age:.0f}s", flush=True)
-          should_record = age >= 30 * 60
-          if not should_record:
-              print("SKIP: recording already published recently.", flush=True)
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"should_record={str(should_record).lower()}\n")
-          PY
-
-      - name: Record 6 minutes
-        if: steps.timing.outputs.should_record == 'true'
-        shell: bash
-        run: |
-          mkdir -p recordings
-          ffmpeg -nostdin -y \
-            -i "https://glzwizzlv.bynetcdn.com/glglz_mp3" \
-            -t 360 \
-            -c:a libmp3lame \
-            -b:a 128k \
-            recordings/original.mp3
-
-      - name: Detect and trim news intro
-        if: steps.timing.outputs.should_record == 'true'
-        shell: bash
-        run: |
-          python3 detect_intro.py \
-            recordings/original.mp3 \
-            news-intro-reference.mp3 \
-            recordings/latest.mp3
-
-      - name: Verify final recording
-        if: steps.timing.outputs.should_record == 'true'
-        shell: bash
-        run: |
-          test -s recordings/latest.mp3
-          ffprobe -v error \
-            -show_entries format=duration,size \
-            -of default=noprint_wrappers=1 \
-            recordings/latest.mp3
-          ffmpeg -v error -i recordings/latest.mp3 -f null -
-
-      - name: Publish latest recording
-        if: steps.timing.outputs.should_record == 'true'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-          git add recordings/latest.mp3
-          if git diff --cached --quiet; then
-            echo "No changes to publish."
-            exit 0
-          fi
-          git commit -m "Update latest news recording"
-          git pull --rebase origin main
-          git push
+      - name: Capture, trim, validate and publish
+        env:
+          TARGET_EPOCH: ${{ steps.plan.outputs.target }}
+        run: /usr/bin/python3 news_worker.py record --target "$TARGET_EPOCH"

@@ -10,32 +10,4 @@
 </style>
 </head>
 <body><main class="shell"><header class="top"><div class="brand">חדשות עכשיו<span style="color:#66b5ff">.</span></div><span class="badge" id="liveBadge">מבזק אחרון</span></header><section class="card"><div class="radio" aria-hidden="true">🎙️</div><p class="eyebrow">ההקלטה האחרונה</p><h1>מבזק גלגלצ</h1><p class="sub">כל מה שצריך לדעת, בלחיצה אחת.</p><div class="time" id="recordedAt">בודק את שעת המבזק...</div><button class="play" id="play" aria-label="נגן" disabled>▶</button><input class="seek" id="seek" type="range" min="0" max="100" value="0" aria-label="התקדמות ההקלטה"><div class="times"><span id="elapsed">0:00</span><span id="duration">0:00</span></div><div class="actions"><button id="refresh">↻ רענון מבזק</button><button id="speed">מהירות ×1</button></div><p class="status" id="status" role="status">טוען פרטי הקלטה...</p></section><p class="foot">נגן ניסיוני לשימוש אישי. התוכן משודר על ידי גלגלצ ואינו מופק על ידי האתר.<br><span class="notice">הקלטות עשויות להכיל מוזיקה לפני תחילת המבזק.</span></p><audio id="audio" preload="metadata"></audio></main>
-<script>
-const OWNER='amitseren-droid', REPO='radio-news-recorder', BRANCH='main';
-const raw=`https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/recordings/latest.mp3`;
-const api=`https://api.github.com/repos/${OWNER}/${REPO}/commits?path=recordings/latest.mp3&per_page=1`;
-const $=id=>document.getElementById(id), audio=$('audio'), play=$('play'), status=$('status');
-const fmt=t=>Number.isFinite(t)?`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`:'0:00';
-let currentUrl='', seeking=false;
-function setStatus(s){status.textContent=s}
-function setPlay(){play.textContent=audio.paused?'▶':'❚❚';play.setAttribute('aria-label',audio.paused?'נגן':'השהה')}
-async function refresh(){setStatus('בודק את ההקלטה האחרונה...');$('refresh').disabled=true;try{
- const response=await fetch(api,{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});
- if(!response.ok)throw Error(response.status===404?'לא נמצאה הקלטה. יש לוודא שהריפוזיטורי ציבורי ושהקובץ recordings/latest.mp3 קיים.':`לא ניתן לבדוק עדכונים (${response.status}).`);
- const commits=await response.json();if(!commits.length)throw Error('עדיין לא פורסמה הקלטה.');
- const commit=commits[0],stamp=commit.commit.committer?.date||commit.commit.author?.date;
- const when=stamp?new Date(stamp):null;
- $('recordedAt').textContent=when?`עודכן ב־${new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(when)} (שעת שמירת הקובץ)`:'ההקלטה האחרונה';
- const url=`${raw}?v=${encodeURIComponent(commit.sha)}`;
- if(url!==currentUrl){const wasPlaying=!audio.paused&&currentUrl;audio.pause();currentUrl=url;audio.src=url;audio.load();$('seek').value=0;$('elapsed').textContent='0:00';$('duration').textContent='0:00';play.disabled=false;setPlay();setStatus('ההקלטה מוכנה להאזנה.');if(wasPlaying)setStatus('יש מבזק חדש! לחץ על נגן כדי להאזין.')}else setStatus('זו ההקלטה העדכנית ביותר.');
- }catch(e){setStatus(e.message||'אירעה שגיאה בבדיקת המבזק.')}finally{$('refresh').disabled=false}}
-play.addEventListener('click',async()=>{try{if(audio.paused)await audio.play();else audio.pause()}catch(e){setStatus('לא ניתן לנגן את הקובץ. בדוק שהוא זמין ושהריפוזיטורי ציבורי.')}});
-audio.addEventListener('play',setPlay);audio.addEventListener('pause',setPlay);
-audio.addEventListener('loadedmetadata',()=>{$('duration').textContent=fmt(audio.duration)});
-audio.addEventListener('timeupdate',()=>{if(!seeking&&audio.duration){$('seek').value=100*audio.currentTime/audio.duration;$('elapsed').textContent=fmt(audio.currentTime)}});
-$('seek').addEventListener('input',()=>{seeking=true;if(audio.duration)$('elapsed').textContent=fmt(audio.duration*$('seek').value/100)});
-$('seek').addEventListener('change',()=>{if(audio.duration)audio.currentTime=audio.duration*$('seek').value/100;seeking=false});
-const speeds=[1,1.25,1.5,2];$('speed').addEventListener('click',()=>{let idx=speeds.indexOf(audio.playbackRate);audio.playbackRate=speeds[(idx+1)%speeds.length];$('speed').textContent=`מהירות ×${audio.playbackRate}`});
-$('refresh').addEventListener('click',refresh);audio.addEventListener('error',()=>setStatus('טעינת האודיו נכשלה. ודא שקובץ MP3 זמין ב־GitHub.'));
-refresh();setInterval(()=>{if(document.visibilityState==='visible')refresh()},5*60*1000);
-</script></body></html>
+<script src="player.js?v=2.6" defer></script></body></html>
