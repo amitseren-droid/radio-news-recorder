@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "recorder_version": "2.6",
-  "target_epoch": 1794247200,
-  "bulletin_hour": "2026-11-09T18:00:00+00:00",
-  "capture_started_at": "2026-11-09T17:59:45.000112+00:00",
+  "target_epoch": 1794276000,
+  "bulletin_hour": "2026-11-10T02:00:00+00:00",
+  "capture_started_at": "2026-11-10T01:59:45.000145+00:00",
   "duration_seconds": 375.04,
   "raw_duration_seconds": 375.04,
   "intro_detected": false,
-  "sha256": "a1e788a9e34155bfe47f5f478470d627ac0c09abe6bdf62824e26eb5bb9f0471",
-  "run_id": "42667186530",
-  "published_at": "2026-11-09T18:05:06.627175+00:00"
+  "sha256": "aab0211397b77e896888041a7b17a7caa5dfe818384727def3798cea393285fb",
+  "run_id": "42737440138",
+  "published_at": "2026-11-10T02:05:06.998823+00:00"
 }
